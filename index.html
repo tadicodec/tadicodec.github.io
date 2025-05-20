@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="generator" content="Hugo 0.88.1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,700" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/styles/github.min.css">
+    <link rel="stylesheet" href="css/custom.css">
+    <link rel="stylesheet" href="css/normalize.css">
+
+    <title>TaDiCodec</title>
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
+</head>
+
+<body data-new-gr-c-s-check-loaded="14.1091.0" data-gr-ext-installed="">
+
+<div class="container">
+<header role="banner">
+</header>
+<main role="main">
+<article itemscope itemtype="https://schema.org/BlogPosting">
+
+<div class="container pt-5 mt-5 shadow-lg p-5 mb-5 bg-white rounded">
+    <div class="text-center">
+    <h2><b><i>TaDiCodec:</i></b></h2>
+      <h3>Text-aware Diffusion Speech Tokenizer for Speech Language Modeling</h3>
+    </div>
+    <p><b>Abstract</b>
+        Speech tokenizers serve as foundational components for speech language models, yet current designs exhibit several limitations, including:
+        (1) dependence on multi-layer residual vector quantization structures or high frame rates,
+        (2) reliance on auxiliary pre-trained models for semantic distillation, and
+        (3) requirements for complex two-stage training processes.
+        In this work, we introduce the <i><b>T</b></i>ext-<i><b>a</b></i>ware <i><b>Di</b></i>ffusion Transformer Speech <i><b>Codec</b></i> (<i><b>TaDiCodec</b></i>), a novel approach designed to overcome these challenges.
+        TaDiCodec employs end-to-end optimization for quantization and reconstruction through a diffusion autoencoder, while integrating text guidance into the diffusion decoder to enhance reconstruction quality and achieve optimal compression.
+        TaDiCodec achieves an extremely low frame rate of <b>6.25 Hz</b> and a corresponding bitrate of <b>0.0875 kbps</b> with a <b>single-layer codebook</b> for 24 kHz speech,
+        while maintaining superior performance on critical speech generation evaluation metrics such as Word Error Rate (WER), speaker similarity (SIM), and speech quality (UTMOS).
+        Notably, TaDiCodec employs a single-stage, end-to-end training paradigm, obviating the need for auxiliary pre-trained models.
+        We also validate the compatibility of TaDiCodec in language model based zero-shot text-to-speech with both autoregressive modeling and masked generative modeling, demonstrating its effectiveness and efficiency for speech language modeling, as well as a significantly small <i>reconstruction-generation gap</i>.
+        We will open source our code and model checkpoints.
+    </p>
+
+    <!-- <p>
+    <b>Contents</b>
+      <ul>
+        <li><a href="#speech-reconstruction">Speech reconstruction</a></li>
+        <li><a href="#speech-reconstruction">Zero-shot TTS</a></li>
+      </ul>
+    </p> -->
+
+    <p><b>This page is for research demonstration purposes only.</b></p>
+
+    
+</div>
+
+<div class="container pt-5 mt-5 shadow-lg p-5 mb-5 bg-white rounded">
+    <div class="text-center">
+        <!-- <h2>Model Architecture</h2> -->
+        <img src="img/tadicodec_3d.svg" alt="TaDiCodec Architecture" class="img-fluid my-4" style="max-width: 100%; height: auto;">
+        <p class="figure-caption">
+            <strong>Figure 1: Comparison between TaDiCodec and other speech tokenizers.</strong> We use a three-dimensional coordinate system to display the performance across three dimensions: the x-axis represents WER, the y-axis represents UTMOS, and the z-axis represents SIM. The size of the markers is proportional to the kbps value.
+        </p>
+    </div>
+</div>
+
+
+<div class="container pt-5 mt-5 shadow-lg p-5 mb-5 bg-white rounded">
+    <h2 id="speech-reconstruction-comparison" style="text-align: center;">Speech Reconstruction Comparison with Other Systems</h2>
+    <p>This section compares the speech reconstruction quality of various systems with different bitrates.</p>
+    <div class="table-responsive pt-3">
+        <table class="table table-hover pt-2">
+            <thead>
+                <tr>
+                    <th style="text-align: center; width: 220px;">Ground Truth</th>
+                    <th style="text-align: center; width: 220px;">Mimi (1.1 kbps)</th>
+                    <th style="text-align: center; width: 220px;">WavTokenizer (0.9 kbps)</th>
+                    <th style="text-align: center; width: 220px;">BiCodec (0.65 kbps)</th>
+                    <th style="text-align: center; width: 220px;">DualCodec (0.925 kbps)</th>
+                    <th style="text-align: center; width: 220px;">Ours (0.0875 kbps)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td colspan="6" style="text-align: center; background-color: #f8f9fa;"><b>In-the-Wild, EN</b></td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/en_005.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/en_005.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/en_005.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/en_005.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/en_005.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/en_005.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/en_008.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/en_008.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/en_008.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/en_008.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/en_008.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/en_008.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/en_010.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/en_010.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/en_010.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/en_010.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/en_010.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/en_010.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/en_012.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/en_012.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/en_012.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/en_012.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/en_012.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/en_012.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/en_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/en_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/en_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/en_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/en_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/en_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/en_022.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/en_022.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/en_022.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/en_022.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/en_022.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/en_022.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/en_023.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/en_023.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/en_023.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/en_023.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/en_023.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/en_023.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/en_025.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/en_025.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/en_025.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/en_025.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/en_025.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/en_025.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="6" style="text-align: center; background-color: #f8f9fa;"><b>In-the-Wild, ZH</b></td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/zh_007.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/zh_007.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/zh_007.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/zh_007.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/zh_007.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/zh_007.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/zh_009.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/zh_009.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/zh_009.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/zh_009.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/zh_009.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/zh_009.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/zh_010.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/zh_010.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/zh_010.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/zh_010.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/zh_010.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/zh_010.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/zh_012.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/zh_012.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/zh_012.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/zh_012.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/zh_012.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/zh_012.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/zh_014.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/zh_014.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/zh_014.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/zh_014.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/zh_014.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/zh_014.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/zh_015.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/zh_015.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/zh_015.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/zh_015.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/zh_015.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/zh_015.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/zh_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/zh_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/zh_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/zh_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/zh_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/zh_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/zh_023.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/zh_023.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/zh_023.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/zh_023.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/zh_023.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/zh_023.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="6" style="text-align: center; background-color: #f8f9fa;"><b>Singing</b></td>
+                </tr>
+                <tr></tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/sing_001.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/sing_001.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/sing_001.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/sing_001.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/sing_001.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/sing_001.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/sing_003.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/sing_003.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/sing_003.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/sing_003.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/sing_003.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/sing_003.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/sing_004.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/sing_004.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/sing_004.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/sing_004.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/sing_004.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/sing_004.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/gt/sing_005.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/mimi/sing_005.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/wavtokenizer/sing_005.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/bicodec/sing_005.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/dualcodec/sing_005.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle;text-align:center;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/ours/sing_005.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+
+<div class="container pt-5 mt-5 shadow-lg p-5 mb-5 bg-white rounded">
+    <h2 id="zero-shot-tts" style="text-align: center;">Zero-Shot TTS</h2>
+    <p>This section demonstrates the zero-shot TTS capabilities built on TaDiCodec, showcasing various case types including articulatory, cross-lingual, and code-switching scenarios.</p>
+    <div class="table-responsive pt-3">
+        <table class="table table-hover pt-2">
+            <thead>
+                <tr>
+                    <th style="text-align: center; width: 220px;">Case Type</th>
+                    <th style="text-align: center; width: 220px;">Target Text</th>
+                    <th style="text-align: center; width: 220px;">Prompt Speech</th>
+                    <th style="text-align: center; width: 220px;">Generated Speech</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;" rowspan="7">Regular</td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>You think you can just waltz in here and cause chaos? Well, I've got news for you. This time, there's no escaping the consequences. So, one by one, step forward, and let's see who’s bold enough to face the music. It's time for a little dose of reality—prepare to be dealt with!</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/en_013.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/regular_en_013.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>Let it envelop you like a cozy blanket, reminding you of the moments shared and the lessons learned. Embrace the wisdom that flows from those experiences, letting it guide you through challenges and inspire your dreams. Each memory is a treasure, a flicker of light that can illuminate the darkest paths. Let the love of your elder resonate within, fueling your journey forward with strength and compassion.</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/en_014.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/regular_en_014.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>It might give you the space to collect your thoughts and emotions, to reflect on everything we've been through. After all, sometimes a little distance can provide clarity, and I want you to feel comfortable.</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/en_019.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/regular_en_019.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>I can't shake this feeling of guilt, this notion that happiness is something I have to earn, not something I can simply take. Every laugh feels forced, every smile feels like a mask, hiding the turmoil within. I keep reminding myself of the struggles around me, the battles that so many face daily. How could I possibly revel in joy when there’s so much sorrow in the world? It's a constant tug-of-war between wanting to feel free and the weight of responsibility pressing down on my heart.</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/en_025.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/regular_en_025.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>实在令人心动，仿佛整个世界都在她的笑容中变得温柔。那一瞬间，时光仿佛凝固，周围的一切都失去了颜色，只有她的笑容如同春日的阳光，温暖而明亮。朕不禁想，是否有幸能常伴在她身侧，共享这份宁静与美好。人生如梦，唯愿这一刻能长久停留。</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/zh_003.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/regular_zh_003.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>臣愿以忠诚之心，竭尽所能，捧心事于朝廷，效力于国家。愿以微薄之力，与众同心，共同开创繁荣昌盛的新局面。若有不妥之处，恳请陛下明示，我必当勤修焉。</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/zh_004.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/regular_zh_004.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>一缕温暖的阳光透过树梢洒下，将雪地的白色映衬得愈加明亮。茶香袅袅升起，伴随着微风，仿佛连空气都变得甜美起来。这样恬静的午后，似乎时间都静止了，只有心中的宁静与这片白色世界相互交融。</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/zh_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/regular_zh_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;" rowspan="5">Code-Switching</td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0; width: 400px">
+                            <li>It's truly heartwarming,仿佛 the entire world becomes gentle in her smile. In that瞬间, time seems to freeze, and everything around失去了颜色, only her smile shines like春日的阳光, warm and bright. I can't help but wonder,是否有幸 to always be by her side,分享这份宁静与美好. Life is like a dream, I only wish this moment能长久停留.</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/zh_003.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/codeSwitching_zh_003.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0; width: 400px">
+                            <li>I am willing to以忠诚之心, do my utmost, and捧心事于朝廷, serve the国家. I wish to以微薄之力, join hands with everyone, and一起开创繁荣昌盛的新局面. If there are any不妥之处, I humbly ask your majesty to明示, and I shall certainly勤修焉.</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/zh_004.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/codeSwitching_zh_004.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0; width: 400px">
+                            <li>和各种 stage performances。在这段时间里，我努力提升自己的能力，希望能够通过 my music 和 dance，将正能量传递给每一个人。无论未来的 road 多么艰辛，我都会坚持追求自己的 dreams。期待在未来的 stage 上与大家见面，感谢大家的 support！</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/zh_008.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/codeSwitching_zh_008.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0; width: 400px">
+                            <li>But her mood仍然难以释怀，friends 对此感到担忧。Gradually, 一些人开始主动联系她，trying to understand her recent situation，甚至提议一起出去散心。After几次的邀请，她终于 agreed，决定让自己走出阴霾，重新面对生活。That day，她走出家门，sunlight洒在脸上，似乎带来了一丝久违的 warmth与希望。</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/zh_009.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/codeSwitching_zh_009.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0; width: 400px">
+                            <li>In this fleeting passage of time, 我们常常忙于追寻, yet we overlook the beauty around us. 每一刻都是独一无二的记忆, worth savoring. Cherish the present, 感恩生活, and let our souls find light in the ordinary. No matter how the future changes, may we迎接每一个新的日出 with a calm heart.</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/zh_013.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/codeSwitching_zh_013.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;" rowspan="4">Cross-lingual</td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>Yes, usually people choose to face life with more positive emotions, after all, happy times are always yearning. However, sometimes slowing down and experiencing the details of life can bring deeper joy and satisfaction. What do you think?</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/zh_007.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/crosslingual_zh_007.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>I know that this matter is of great importance and must not be taken lightly. We can never let her safety be compromised. Therefore, I quickly began to gather all the resources that might be needed, contacting those who could help, ensuring that she can be brought back safely no matter what. In my heart, I quietly prayed, hoping everything would go smoothly.</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/zh_022.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/crosslingual_zh_022.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>在那之后，技术、科学和文化等各个领域的新发展和见解不断涌现。保持最新信息非常重要，以保持我们的理解与时俱进且相关。参与最近的出版物、讨论和更新将增强我们对不断变化的话题的知识和视角。在这个信息不断发展和变化的世界中，持续学习的过程至关重要。</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/en_002.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/crosslingual_en_002.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>这可能会给你空间来整理你的想法和情感，反思我们经历的一切。毕竟，有时候一点距离可以提供清晰度，我希望你感到自在。</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/en_019.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/crossLingual_en_019.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;" rowspan="5">Articulatory</td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>Jittery Jack's jam jars jiggled jauntily, jolting Jack's jumbled jelly-filled jars joyously.</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/en_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/tongueTwisters_en_018.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>Cindy's circular cymbals clanged cheerfully, clashing crazily near Carla's crashing crockery.</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/en_022.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/tongueTwisters_en_022.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>是啊，通常大家都会选择更积极的情绪来面对对生活，毕竟竟竟竟快乐的时光总是让人向往。不过，有时时时候慢下来，去感受生活中的细节，反而能能能带来更深刻的乐趣趣趣和满足感。你觉得呢呢呢呢？</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/zh_007.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/repetition_zh_007.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>谢老爹和薛大爷谢老爹在街上扫雪，薛大爷在屋里打铁。薛大爷见谢老爹扫雪，就放下手里打着的铁，到街上帮谢老爹扫雪。谢老爹扫完街上的雪，进屋去帮薛大爷打铁。两人同扫雪，两人同打铁。</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/zh_025.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/tongueTwisters_zh_025.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <ul style="list-style-type: none; padding: 0;">
+                            <li>寡妇马华莎，光汉贾家嘉。马华莎脸上麻，贾家嘉独眼瞎，两人登记成了家。贾家嘉不嫌马华莎麻，马华莎不嫌贾家嘉瞎。</li>
+                        </ul>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/prompt/zh_005.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                    <td style="vertical-align: middle; text-align: center; border-bottom: 1px solid #ddd;">
+                        <audio controls="controls" style="width: 220px;">
+                            <source src="demo_sample/tts/gen/tongueTwisters_zh_005.wav" autoplay/>
+                            Your browser does not support the audio element.
+                        </audio>
+                    </td>
+                </tr>
+
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</article>
+</main>
+</div>
+
+</body>
+</html>
